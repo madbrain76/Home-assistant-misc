@@ -34,6 +34,14 @@ blueprint:
         minutes: 5
 
 trigger:
+  - platform: homeassistant
+    event: start
+    id: ha_start
+
+  - platform: event
+    event_type: automation_reloaded
+    id: automation_reload
+
   - platform: state
     entity_id: !input light
     to: "on"
@@ -46,10 +54,63 @@ trigger:
     id: motion_clear
 
 action:
-  - if:
-      - condition: trigger
-        id: motion_clear
-    then:
-      - service: light.turn_off
-        target:
-          entity_id: !input light
+  - choose:
+      # HA start or automation reload: if light is on and motion is off, wait for timeout or motion
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: ha_start
+              - condition: trigger
+                id: automation_reload
+          - condition: state
+            entity_id: !input light
+            state: "on"
+          - condition: state
+            entity_id: !input motion_sensor
+            state: "off"
+        sequence:
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "on"
+            timeout: !input timeout
+            continue_on_timeout: true
+          - if:
+              - condition: template
+                value_template: "{{ wait.trigger is none }}"
+            then:
+              - service: light.turn_off
+                target:
+                  entity_id: !input light
+
+      # Light turned on externally without motion
+      - conditions:
+          - condition: trigger
+            id: light_on
+          - condition: state
+            entity_id: !input motion_sensor
+            state: "off"
+        sequence:
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "on"
+            timeout: !input timeout
+            continue_on_timeout: true
+          - if:
+              - condition: template
+                value_template: "{{ wait.trigger is none }}"
+            then:
+              - service: light.turn_off
+                target:
+                  entity_id: !input light
+
+      # Motion stayed off for timeout: turn off light
+      - conditions:
+          - condition: trigger
+            id: motion_clear
+        sequence:
+          - service: light.turn_off
+            target:
+              entity_id: !input light
