@@ -65,89 +65,35 @@ trigger:
     for: !input timeout
     id: motion_clear
 
+mode: single
+
 action:
   - choose:
-      # HA start or automation reload: if light is on and motion is off, wait for timeout or motion
+      # HA start/reload OR light turned on externally: wait for motion
       - conditions:
           - condition: or
             conditions:
-              - condition: trigger
-                id: ha_start
-              - condition: trigger
-                id: automation_reload
-          - condition: state
-            entity_id: !input light
-            state: "on"
-          - condition: state
-            entity_id: !input motion_sensor
-            state: "off"
-        sequence:
-          - wait_for_trigger:
-              - platform: state
-                entity_id: !input motion_sensor
-                to: "on"
-            timeout: !input timeout
-            continue_on_timeout: true
-          - if:
-              - condition: template
-                value_template: "{{ wait.trigger is none }}"
-            then:
-              - service: light.turn_off
-                target:
-                  entity_id: !input light
-              # Reactivation window: wait for motion
-              - wait_for_trigger:
-                  - platform: state
+              - condition: and
+                conditions:
+                  - condition: or
+                    conditions:
+                      - condition: trigger
+                        id: ha_start
+                      - condition: trigger
+                        id: automation_reload
+                  - condition: state
+                    entity_id: !input light
+                    state: "on"
+                  - condition: state
                     entity_id: !input motion_sensor
-                    to: "on"
-                timeout: !input reactivation_timeout
-                continue_on_timeout: true
-              # If motion detected, reactivate
-              - if:
-                  - condition: template
-                    value_template: "{{ wait.trigger is not none and wait.trigger.to_state.state == 'on' }}"
-                then:
-                  - service: light.turn_on
-                    target:
-                      entity_id: !input light
-              # Reactivation window: wait for motion
-              - wait_for_trigger:
-                  - platform: state
+                    state: "off"
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id: light_on
+                  - condition: state
                     entity_id: !input motion_sensor
-                    to: "on"
-                timeout: !input reactivation_timeout
-                continue_on_timeout: true
-              # If motion detected, reactivate
-              - if:
-                  - condition: template
-                    value_template: "{{ wait.trigger is not none and wait.trigger.to_state.state == 'on' }}"
-                then:
-                  - service: light.turn_on
-                    target:
-                      entity_id: !input light
-              # Reactivation window: wait for motion
-              - wait_for_trigger:
-                  - platform: state
-                    entity_id: !input motion_sensor
-                    to: "on"
-                timeout: !input reactivation_timeout
-                continue_on_timeout: true
-              # If motion detected, reactivate
-              - if:
-                  - condition: template
-                    value_template: "{{ wait.trigger is not none and wait.trigger.to_state.state == 'on' }}"
-                then:
-                  - service: light.turn_on
-                    target:
-                      entity_id: !input light
-
-      # Light turned on externally without motion
-      - conditions:
-          - condition: trigger
-            id: light_on
-          - condition: state
-            entity_id: !input motion_sensor
-            state: "off"
+                    state: "off"
         sequence:
           - wait_for_trigger:
               - platform: state
