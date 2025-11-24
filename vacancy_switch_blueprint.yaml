@@ -5,7 +5,7 @@
 
 blueprint:
   name: Simple Vacancy Light Control
-  description: Turn off a light if no motion is detected after it's turned on, with optional reactivation
+  description: Turn off a light automatically when no motion is detected. Reactivate it optionally if motion is detected after being turned off.
   domain: automation
   source_url: https://github.com/madbrain76/Home-assistant-misc/vacancy-switch.yaml
 
@@ -18,7 +18,7 @@ blueprint:
           domain: light
 
     motion_sensor:
-      name: Motion Sensor
+      name: Motion sensor
       description: Motion sensor entity to monitor
       selector:
         entity:
@@ -27,7 +27,7 @@ blueprint:
 
     timeout:
       name: Deactivation timeout
-      description: How long to wait for motion before turning off the light
+      description: The light will automatically turn off when there no motion detected before this timeout elapses.
       selector:
         duration:
       default:
@@ -35,7 +35,7 @@ blueprint:
 
     reactivation_timeout:
       name: Reactivation timeout
-      description: How long after this automation turned off the light to allow reactivation if motion is detected
+      description: After this automation turns off the light, the light will automatically turn back on when if motion is detected before this timeout elapses.
       selector:
         duration:
       default:
@@ -68,82 +68,59 @@ trigger:
 mode: single
 
 action:
-  - choose:
-      # HA start/reload OR light turned on externally: wait for motion
-      - conditions:
-          - condition: or
+  - if:
+      - condition: or
+        conditions:
+          - condition: and
             conditions:
-              - condition: and
-                conditions:
-                  - condition: or
-                    conditions:
-                      - condition: trigger
-                        id: ha_start
-                      - condition: trigger
-                        id: automation_reload
-                  - condition: state
-                    entity_id: !input light
-                    state: "on"
-                  - condition: state
-                    entity_id: !input motion_sensor
-                    state: "off"
-              - condition: and
+              - condition: or
                 conditions:
                   - condition: trigger
-                    id: light_on
-                  - condition: state
-                    entity_id: !input motion_sensor
-                    state: "off"
-        sequence:
-          - wait_for_trigger:
-              - platform: state
+                    id: ha_start
+                  - condition: trigger
+                    id: automation_reload
+              - condition: state
+                entity_id: !input light
+                state: "on"
+              - condition: state
                 entity_id: !input motion_sensor
-                to: "on"
-            timeout: !input timeout
-            continue_on_timeout: true
-          - if:
-              - condition: template
-                value_template: "{{ wait.trigger is none }}"
-            then:
-              - service: light.turn_off
-                target:
-                  entity_id: !input light
-              # Reactivation window: wait for motion
-              - wait_for_trigger:
-                  - platform: state
-                    entity_id: !input motion_sensor
-                    to: "on"
-                timeout: !input reactivation_timeout
-                continue_on_timeout: true
-              # If motion detected, reactivate
-              - if:
-                  - condition: template
-                    value_template: "{{ wait.trigger is not none and wait.trigger.to_state.state == 'on' }}"
-                then:
-                  - service: light.turn_on
-                    target:
-                      entity_id: !input light
+                state: "off"
+          - condition: and
+            conditions:
+              - condition: trigger
+                id: light_on
+              - condition: state
+                entity_id: !input motion_sensor
+                state: "off"
+    then:
+      - wait_for_trigger:
+          - platform: state
+            entity_id: !input motion_sensor
+            to: "on"
+        timeout: !input timeout
+        continue_on_timeout: true
 
-      # Motion cleared and stayed off for deactivation timeout duration : turn off the light
-      - conditions:
+  - if:
+      - condition: or
+        conditions:
           - condition: trigger
             id: motion_cleared
-        sequence:
-          - service: light.turn_off
+          - condition: template
+            value_template: "{{ wait.trigger is none }}"
+    then:
+      - service: light.turn_off
+        target:
+          entity_id: !input light
+      - wait_for_trigger:
+          - platform: state
+            entity_id: !input motion_sensor
+            to: "on"
+        timeout: !input reactivation_timeout
+        continue_on_timeout: true
+      - if:
+          - condition: template
+            value_template: "{{ wait.trigger is not none and wait.trigger.to_state.state == 'on' }}"
+        then:
+          - service: light.turn_on
             target:
               entity_id: !input light
-          # Reactivation window: wait for motion
-          - wait_for_trigger:
-              - platform: state
-                entity_id: !input motion_sensor
-                to: "on"
-            timeout: !input reactivation_timeout
-            continue_on_timeout: true
-          # If motion detected, reactivate
-          - if:
-              - condition: template
-                value_template: "{{ wait.trigger is not none and wait.trigger.to_state.state == 'on' }}"
-            then:
-              - service: light.turn_on
-                target:
-                  entity_id: !input light
