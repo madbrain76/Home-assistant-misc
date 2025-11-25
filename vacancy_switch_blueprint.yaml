@@ -33,6 +33,14 @@ blueprint:
       default:
         minutes: 5
 
+    reactivation_timeout:
+      name: Reactivation Timeout
+      description: How long to wait for motion after turning off the light to reactivate it
+      selector:
+        duration:
+      default:
+        minutes: 1
+
 trigger:
   - platform: homeassistant
     event: start
@@ -58,6 +66,8 @@ mode: single
 variables:
   light_entity: !input light
   motion_entity: !input motion_sensor
+  timeout: !input timeout
+  reactivation_timeout: !input reactivation_timeout
 
 action:
   - service: system_log.write
@@ -122,3 +132,32 @@ action:
       - service: light.turn_off
         target:
           entity_id: !input light
+
+      # Case 3: Wait for motion during reactivation timeout to reactivate light
+      - service: system_log.write
+        data:
+          message: "CASE3: Waiting for motion during reactivation timeout {{ reactivation_timeout }}"
+          level: warning
+      - wait_for_trigger:
+          - platform: state
+            entity_id: !input motion_sensor
+            to: "on"
+        timeout: !input reactivation_timeout
+        continue_on_timeout: true
+      - service: system_log.write
+        data:
+          message: "CASE3: reactivation wait complete, motion_detected={{ wait.trigger is not none }}"
+          level: warning
+      
+      # Case 4: Reactivate light if motion detected during reactivation timeout
+      - if:
+          - condition: template
+            value_template: "{{ wait.trigger is not none }}"
+        then:
+          - service: system_log.write
+            data:
+              message: "CASE4: Motion detected, reactivating light"
+              level: warning
+          - service: light.turn_on
+            target:
+              entity_id: !input light
