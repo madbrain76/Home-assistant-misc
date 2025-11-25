@@ -55,10 +55,14 @@ trigger:
 
 mode: single
 
+variables:
+  light_entity: !input light
+  motion_entity: !input motion_sensor
+
 action:
   - service: system_log.write
     data:
-      message: "VACANCY: trigger={{ trigger.id }}, light={{ states[light] }}, motion={{ states[motion_sensor] }}"
+      message: "VACANCY: trigger={{ trigger.id }}, light={{ states[light_entity] }}, motion={{ states[motion_entity] }}"
       level: warning
 
   # Case 1: HA start/reload or light turned on - wait for motion first
@@ -109,7 +113,7 @@ action:
           - condition: trigger
             id: motion_clear
           - condition: template
-            value_template: "{{ wait.trigger is none }}"
+            value_template: "{{ trigger.id != 'light_on' or (trigger.id == 'light_on' and wait is defined and wait.trigger is none) }}"
     then:
       - service: system_log.write
         data:
