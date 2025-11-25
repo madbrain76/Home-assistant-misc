@@ -39,7 +39,7 @@ blueprint:
       selector:
         duration:
       default:
-        minutes: 1
+        seconds: 30
 
 trigger:
   - platform: homeassistant
@@ -73,7 +73,7 @@ action:
   - service: system_log.write
     data:
       message: "VACANCY: trigger={{ trigger.id }}, light={{ states[light_entity] }}, motion={{ states[motion_entity] }}"
-      level: warning
+      level: debug
 
   # Case 1: HA start/reload or light turned on - wait for motion first
   - if:
@@ -104,7 +104,7 @@ action:
       - service: system_log.write
         data:
           message: "CASE1: Waiting for motion with timeout {{ timeout }}"
-          level: warning
+          level: debug
       - wait_for_trigger:
           - platform: state
             entity_id: !input motion_sensor
@@ -114,7 +114,7 @@ action:
       - service: system_log.write
         data:
           message: "CASE1: wait complete, motion_detected={{ wait.trigger is not none }}"
-          level: warning
+          level: debug
 
   # Case 2: Turn off light (runs if motion_clear OR if Case 1 timed out)
   - if:
@@ -128,7 +128,7 @@ action:
       - service: system_log.write
         data:
           message: "CASE2: Turning off light"
-          level: warning
+          level: debug
       - service: light.turn_off
         target:
           entity_id: !input light
@@ -137,7 +137,7 @@ action:
       - service: system_log.write
         data:
           message: "CASE3: Waiting for motion during reactivation timeout {{ reactivation_timeout }}"
-          level: warning
+          level: debug
       - wait_for_trigger:
           - platform: state
             entity_id: !input motion_sensor
@@ -147,7 +147,7 @@ action:
       - service: system_log.write
         data:
           message: "CASE3: reactivation wait complete, motion_detected={{ wait.trigger is not none }}"
-          level: warning
+          level: debug
       
       # Case 4: Reactivate light if motion detected during reactivation timeout
       - if:
@@ -157,7 +157,7 @@ action:
           - service: system_log.write
             data:
               message: "CASE4: Motion detected, reactivating light"
-              level: warning
+              level: debug
           - service: light.turn_on
             target:
               entity_id: !input light
