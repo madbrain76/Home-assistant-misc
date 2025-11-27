@@ -61,7 +61,7 @@ trigger:
     for: !input timeout
     id: motion_clear
 
-mode: single
+mode: restart
 
 variables:
   light_entity: !input light
@@ -124,6 +124,9 @@ action:
             id: motion_clear
           - condition: template
             value_template: "{{ trigger.id != 'light_on' or (trigger.id == 'light_on' and wait is defined and wait.trigger is none) }}"
+      - condition: state
+        entity_id: !input motion_sensor
+        state: "off"
     then:
       - service: system_log.write
         data:
