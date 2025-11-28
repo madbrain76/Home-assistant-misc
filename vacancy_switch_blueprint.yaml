@@ -131,9 +131,13 @@ action:
         data:
           message: "CASE2: Turning off light"
           level: debug
-      - service: light.turn_off
-        target:
-          entity_id: !input light
+      - if:
+          - condition: template
+            value_template: "{{ light_state_at_trigger == 'on' }}"
+        then:
+          - service: light.turn_off
+            target:
+              entity_id: !input light
 
       # Case 3: Wait for motion during reactivation timeout to reactivate light
       - service: system_log.write
