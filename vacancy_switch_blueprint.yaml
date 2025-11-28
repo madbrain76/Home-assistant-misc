@@ -68,6 +68,9 @@ variables:
   motion_entity: !input motion_sensor
   timeout: !input timeout
   reactivation_timeout: !input reactivation_timeout
+  # Capture state at trigger time to avoid race conditions from state changes during execution
+  motion_state_at_trigger: "{{ states[motion_entity] }}"
+  light_state_at_trigger: "{{ states[light_entity] }}"
 
 action:
   - service: system_log.write
@@ -87,19 +90,16 @@ action:
                     id: ha_start
                   - condition: trigger
                     id: automation_reload
-              - condition: state
-                entity_id: !input light
-                state: "on"
-              - condition: state
-                entity_id: !input motion_sensor
-                state: "off"
+              - condition: template
+                value_template: "{{ light_state_at_trigger == 'on' }}"
+              - condition: template
+                value_template: "{{ motion_state_at_trigger == 'off' }}"
           - condition: and
             conditions:
               - condition: trigger
                 id: light_on
-              - condition: state
-                entity_id: !input motion_sensor
-                state: "off"
+              - condition: template
+                value_template: "{{ motion_state_at_trigger == 'off' }}"
     then:
       - service: system_log.write
         data:
@@ -124,9 +124,8 @@ action:
             id: motion_clear
           - condition: template
             value_template: "{{ trigger.id != 'light_on' or (trigger.id == 'light_on' and wait is defined and wait.trigger is none) }}"
-      - condition: state
-        entity_id: !input motion_sensor
-        state: "off"
+      - condition: template
+        value_template: "{{ motion_state_at_trigger == 'off' }}"
     then:
       - service: system_log.write
         data:
