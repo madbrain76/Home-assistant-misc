@@ -4,8 +4,39 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 blueprint:
-  name: Simple Vacancy Light Control
-  description: Turn off a light if no motion is detected after it's turned on
+  name: Vacancy switch (auto-off/manual-on) light control with optional motion-based reactivation
+  description: >
+    Smart occupancy-based light automation. Light must be manually / externally turned on.
+
+    This automation will then automatically turn off the light if there is no motion for the
+    deactivation timeout duration. The goal is saving energy when a room is unoccupied.
+
+    Optionally, it will reactivate the light, if motion is detected
+    immediately after being turned off by this automation, during the reactivation timeout period.
+
+    This is intended to be used with smart lights that are always available for control by Home
+    Assistant on the network 24/7.
+
+    This automation mimicks the behavior of California Title 24 compliant hard-wired vacancy
+    "dumb" switches, but is compatible with smart light bulbs.
+
+    Traditional vacancy switches, such as the Leviton IPP15/IPP0R series I was
+    previously using, have a relay, which always cuts power to the load eventually, with the
+    only possibility of turning it back on being a physical press of the switch.
+
+    Unfortunately, the maximum deactivation timeout on these units is 30 minutes, configurable
+    by physical setting inside the switch. The deactivation behavior cannot be disabled
+    entirely. This makes these switches completely incompatible with smart bulbs.
+
+    I ended up replacing all my Leviton IPP15/IPP0R switches with Z-wave switches as a result,
+    Zooz ZEN76 and ZEN75. These switches are configured with the power relay always on, which
+    allows the smart bulbs to remain on the network, and always controllable.
+
+    The switches are used solely as scene controllers. This means that smart lights are then exclusively
+    controllable by HA automations, such as this one, and other automations I use based on
+    the scene controller presses with Z-Wave JS, or infrared remote presses. For IR control, I use an
+    ARRX18G  universal remote programmed with Remote Master, in conjunction with an AtHom AR-01 Wifi
+    IR receiver/blaster.
   domain: automation
   source_url: https://github.com/madbrain76/Home-assistant-misc/vacancy-switch.yaml
 
