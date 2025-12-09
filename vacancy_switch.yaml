@@ -4,7 +4,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 blueprint:
-  name: Vacancy switch (auto-off/manual-on) light control with optional motion-based reactivation
+  name: BROKEN - Vacancy switch (auto-off/manual-on) light control with optional motion-based reactivation
   description: >
     Smart occupancy-based light automation. Light must be manually / externally turned on.
 
