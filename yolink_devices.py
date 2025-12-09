@@ -225,6 +225,9 @@ else:
     print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
     print("-" * 175)
     
+    # Sort by device type, then by name
+    table_data.sort(key=lambda row: (row[0], row[1]))
+    
     # Print rows with proper alignment
     for row in table_data:
         print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:^8} {row[5]:^9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
