@@ -12,6 +12,7 @@ from tabulate import tabulate
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Get device list from YoLink local hub')
 parser.add_argument('-noid', '--hide-device-id', action='store_true', help='Hide the Device ID column')
+parser.add_argument('--json', action='store_true', help='Output JSON response for each device showing all fields')
 args = parser.parse_args()
 
 # Get environment variables
@@ -115,7 +116,9 @@ def format_temperature(temp_value, device_type):
 
 # Function to get device properties
 def get_device_properties(device_id, device_token, device_type):
-    """Get device state/properties from YoLink API"""
+    """Get device state/properties from YoLink API
+    Returns: (state_data, full_response) tuple
+    """
     try:
         method = f"{device_type}.getState"
         response = requests.post(
@@ -139,18 +142,19 @@ def get_device_properties(device_id, device_token, device_type):
         # Check for API errors
         code = result.get('code', '0')
         if code not in ['0', '000000']:
-            return None
+            return None, result
         
         # Extract state data
         state_data = result.get('data', {}).get('state', {})
-        return state_data
+        return state_data, result
     except Exception as e:
         print(f"Warning: Could not fetch properties for {device_id}: {e}", file=sys.stderr)
-        return None
+        return None, None
 
 # Print table
 print()
 table_data = []
+json_responses = []  # Store JSON responses for --json output
 headers = ['Type', 'Name', 'Device ID', 'Model', 'Battery', 'Temp', 'No motion delay', 'Sensitivity', 'State', 'Version']
 
 if not devices:
@@ -172,7 +176,13 @@ else:
         nomotion = 'N/A'
         sensitivity = 'N/A'
         if device_token:
-            properties = get_device_properties(device_id, device_token, device_type)
+            properties, device_json_response = get_device_properties(device_id, device_token, device_type)
+            if device_json_response:
+                json_responses.append({
+                    'deviceId': device_id,
+                    'name': device_name,
+                    'response': device_json_response
+                })
             if properties:
                 
                 # Extract battery level (0-4 maps to 0-100%)
@@ -249,5 +259,16 @@ else:
             print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
         else:
             print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+
+# Output JSON responses if requested
+if args.json and json_responses:
+    print("\n" + "="*80)
+    print("JSON RESPONSES FOR EACH DEVICE")
+    print("="*80 + "\n")
+    for entry in json_responses:
+        print(f"Device: {entry['name']} ({entry['deviceId']})")
+        print("-" * 80)
+        print(json.dumps(entry['response'], indent=2))
+        print()
 
 sys.exit(0)
