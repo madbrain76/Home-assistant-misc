@@ -4,9 +4,15 @@
 import os
 import sys
 import json
+import argparse
 import requests
 from urllib3.exceptions import InsecureRequestWarning
 from tabulate import tabulate
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Get device list from YoLink local hub')
+parser.add_argument('-noid', '--hide-device-id', action='store_true', help='Hide the Device ID column')
+args = parser.parse_args()
 
 # Get environment variables
 yolink_url = os.environ.get('YOLINK_URL')
@@ -217,16 +223,25 @@ else:
         table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, nomotion, sensitivity, state_str, version])
     
     # Print header with wrapped "No motion delay" (3 lines, centered)
-    print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-    print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-    print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-    print("-" * 175)
+    if args.hide_device_id:
+        print(f"{'Type':<20} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<9} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 157)
+    else:
+        print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 175)
     
     # Sort by device type, then by name
     table_data.sort(key=lambda row: (row[0], row[1]))
     
     # Print rows with proper alignment
     for row in table_data:
-        print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+        if args.hide_device_id:
+            print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+        else:
+            print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
 
 sys.exit(0)
