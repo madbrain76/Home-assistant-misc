@@ -89,25 +89,29 @@ def format_device_type(device_type, model=None):
     }
     return type_mapping.get(device_type, device_type)
 
-# Function to format temperature with aligned °C symbol
+# Function to format temperature with aligned C symbol (ASCII only)
 def format_temperature(temp_value, device_type):
-    """Format temperature with consistent alignment so °C symbols line up
+    """Format temperature as 7-char string
     
-    High-res (THSensor): -14.8°C (7 chars)
-    Low-res (others):   11  °C (7 chars, with spaces before °C)
+    N/A: centered ( N/A  )
+    Temps: right-aligned (  17  C)
     """
     if temp_value is None:
-        return 'N/A'
+        return f"{'N/A':^7}"  # Center N/A in 7 chars
     
     if device_type == 'THSensor':
-        # Temperature sensors: 1 decimal, right-align to 5 chars, then °C directly
-        return f"{temp_value:>5.1f}°C"
+        # Temperature sensors: 1 decimal, right-align to 5 chars, then C directly
+        temp_str = f"{temp_value:>5.1f}C"
     else:
-        # Other sensors: integers only, right-align to 3 chars, then 2 spaces and °C
+        # Other sensors: integers only, right-align to 3 chars, then 2 spaces and C
         if temp_value == int(temp_value):
-            return f"{int(temp_value):>3}  °C"
+            temp_str = f"{int(temp_value):>3}  C"
         else:
-            return f"{temp_value:>5.1f}°C"
+            temp_str = f"{temp_value:>5.1f}C"
+    
+    return f"{temp_str:>7}"  # Right-align in 7 chars
+
+
 
 # Function to get device properties
 def get_device_properties(device_id, device_token, device_type):
@@ -162,7 +166,7 @@ else:
         
         # Get device properties
         battery = 'N/A'
-        temperature = 'N/A'
+        temperature = None
         version = 'N/A'
         state_str = 'N/A'
         nomotion = 'N/A'
@@ -175,18 +179,16 @@ else:
                 if 'battery' in properties:
                     battery_level = int((properties['battery'] / 4) * 100)
                     battery = f"{battery_level}%"
-                # Extract temperature (try multiple field names)
-                # For Temperature sensors, always show 1 decimal. For others, only show decimals if present.
+                # Extract temperature (devTemperature is the source of truth)
                 temp_value = None
-                if 'temperature' in properties:
+                if 'devTemperature' in properties:
+                    temp_value = float(properties['devTemperature'])
+                elif 'temperature' in properties:
                     temp_value = float(properties['temperature'])
                 elif 'temp' in properties:
                     temp_value = float(properties['temp'])
-                elif 'devTemperature' in properties:
-                    temp_value = float(properties['devTemperature'])
                 
-                if temp_value is not None:
-                    temperature = format_temperature(temp_value, device_type)
+                temperature = format_temperature(temp_value, device_type)
                 # Extract firmware version
                 if 'version' in properties:
                     version = properties['version']
@@ -220,19 +222,23 @@ else:
                     if first_key:
                         state_str = f"{first_key}: {str(properties[first_key])[:15]}".lower()
         
+        # Format temperature if not already formatted (N/A case)
+        if temperature is None:
+            temperature = format_temperature(None, device_type)
+        
         table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, nomotion, sensitivity, state_str, version])
     
     # Print header with wrapped "No motion delay" (3 lines, centered)
     if args.hide_device_id:
-        print(f"{'Type':<20} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<9} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-        print("-" * 157)
+        print(f"{'Type':<20} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>7} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 153)
     else:
-        print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-        print("-" * 175)
+        print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>7} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 171)
     
     # Sort by device type, then by name
     table_data.sort(key=lambda row: (row[0], row[1]))
@@ -240,8 +246,8 @@ else:
     # Print rows with proper alignment
     for row in table_data:
         if args.hide_device_id:
-            print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+            print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
         else:
-            print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+            print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
 
 sys.exit(0)
