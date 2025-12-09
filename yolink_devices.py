@@ -8,9 +8,6 @@ import requests
 from urllib3.exceptions import InsecureRequestWarning
 from tabulate import tabulate
 
-# Suppress SSL warnings
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
 # Get environment variables
 yolink_url = os.environ.get('YOLINK_URL')
 yolink_token = os.environ.get('YOLINK_TOKEN')
