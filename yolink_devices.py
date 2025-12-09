@@ -90,8 +90,8 @@ def format_device_type(device_type, model=None):
 def format_temperature(temp_value, device_type):
     """Format temperature with consistent alignment so °C symbols line up
     
-    High-res (THSensor): -14.3°C (7 chars)
-    Low-res (others): ' 11  °C' (7 chars, with spaces before °C)
+    High-res (THSensor): -14.8°C (7 chars)
+    Low-res (others):   11  °C (7 chars, with spaces before °C)
     """
     if temp_value is None:
         return 'N/A'
@@ -100,9 +100,9 @@ def format_temperature(temp_value, device_type):
         # Temperature sensors: 1 decimal, right-align to 5 chars, then °C directly
         return f"{temp_value:>5.1f}°C"
     else:
-        # Other sensors: integers only, right-align to 5 chars, then 2 spaces and °C
+        # Other sensors: integers only, right-align to 3 chars, then 2 spaces and °C
         if temp_value == int(temp_value):
-            return f"{int(temp_value):>5}  °C"
+            return f"{int(temp_value):>3}  °C"
         else:
             return f"{temp_value:>5.1f}°C"
 
@@ -220,7 +220,7 @@ else:
         table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, nomotion, sensitivity, state_str, version])
     
     # Print header with wrapped "No motion delay" (3 lines, centered)
-    print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':^8} {'Temp':^9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+    print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>9} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
     print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'motion':^10} {'':<11} {'':<16} {'':<8}")
     print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<9} {'delay':^10} {'':<11} {'':<16} {'':<8}")
     print("-" * 175)
@@ -230,6 +230,6 @@ else:
     
     # Print rows with proper alignment
     for row in table_data:
-        print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:^8} {row[5]:^9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+        print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>9} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
 
 sys.exit(0)
