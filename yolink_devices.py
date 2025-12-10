@@ -6,6 +6,7 @@ import sys
 import json
 import argparse
 import requests
+from datetime import datetime
 from urllib3.exceptions import InsecureRequestWarning
 from tabulate import tabulate
 
@@ -113,6 +114,28 @@ def format_temperature(temp_value, device_type):
     return f"{temp_str:>7}"  # Right-align in 7 chars
 
 
+# Function to format reportAt timestamp
+def format_report_time(report_at_str):
+    """Format ISO 8601 timestamp to local YYYY-MM-DD HH:MM:SS format (19 chars centered)
+    
+    Example: 2025-12-09T08:54:34.042Z -> 2025-12-09 08:54:34 (in local timezone)
+    If parsing fails, return N/A centered
+    """
+    if not report_at_str:
+        return f"{'N/A':^19}"
+    
+    try:
+        # Parse ISO 8601 timestamp (UTC)
+        dt_utc = datetime.fromisoformat(report_at_str.replace('Z', '+00:00'))
+        # Convert to local timezone
+        dt_local = dt_utc.astimezone()
+        time_str = dt_local.strftime('%Y-%m-%d %H:%M:%S')
+        # Center in 19 chars
+        return f"{time_str:^19}"
+    except Exception:
+        return f"{'N/A':^19}"
+
+
 
 # Function to get device properties
 def get_device_properties(device_id, device_token, device_type):
@@ -175,6 +198,7 @@ else:
         state_str = 'N/A'
         nomotion = 'N/A'
         sensitivity = 'N/A'
+        report_time = f"{'N/A':^19}"
         if device_token:
             properties, device_json_response = get_device_properties(device_id, device_token, device_type)
             if device_json_response:
@@ -183,6 +207,10 @@ else:
                     'name': device_name,
                     'response': device_json_response
                 })
+                # Extract reportAt timestamp
+                report_at = device_json_response.get('data', {}).get('reportAt')
+                if report_at:
+                    report_time = format_report_time(report_at)
             if properties:
                 
                 # Extract battery level (0-4 maps to 0-100%)
@@ -236,19 +264,19 @@ else:
         if temperature is None:
             temperature = format_temperature(None, device_type)
         
-        table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, nomotion, sensitivity, state_str, version])
+        table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, report_time, nomotion, sensitivity, state_str, version])
     
-    # Print header with wrapped "No motion delay" (3 lines, centered)
+    # Print header with wrapped "No motion delay" and "Last radio contact" (3 lines, centered)
     if args.hide_device_id:
-        print(f"{'Type':<20} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>7} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-        print("-" * 153)
+        print(f"{'Type':<20} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>7} {'Last':^19} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'radio':^19} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 175)
     else:
-        print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>7} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-        print("-" * 171)
+        print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>7} {'Last':^19} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'radio':^19} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 193)
     
     # Sort by device type, then by name
     table_data.sort(key=lambda row: (row[0], row[1]))
@@ -256,9 +284,9 @@ else:
     # Print rows with proper alignment
     for row in table_data:
         if args.hide_device_id:
-            print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+            print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^19} {row[7]:^10} {row[8]:^11} {row[9]:^16} {row[10]:^8}")
         else:
-            print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^10} {row[7]:^11} {row[8]:^16} {row[9]:^8}")
+            print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^19} {row[7]:^10} {row[8]:^11} {row[9]:^16} {row[10]:^8}")
 
 # Output JSON responses if requested
 if args.json and json_responses:
