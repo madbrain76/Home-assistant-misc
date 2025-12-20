@@ -76,7 +76,7 @@ blueprint:
 
     reactivation_timeout:
       name: Reactivation Timeout
-      description: How long to wait for motion after turning off the light to reactivate it
+      description: How long to wait for motion after this automation turns off the light to reactivate it
       selector:
         duration:
       default:
