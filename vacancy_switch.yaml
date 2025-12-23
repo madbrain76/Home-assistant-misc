@@ -57,7 +57,7 @@ blueprint:
           domain: light
 
     motion_sensor:
-      name: Motion or Occupancy Sensor
+      name: Motion or occupancy sensor
       description: Motion or occupancy sensor entity to monitor
       selector:
         entity:
@@ -67,7 +67,7 @@ blueprint:
             - occupancy
 
     timeout:
-      name: Timeout
+      name: Deactivation timeout
       description: How long motion must be absent before turning off the light
       selector:
         duration:
@@ -75,7 +75,7 @@ blueprint:
         minutes: 5
 
     reactivation_timeout:
-      name: Reactivation Timeout
+      name: Reactivation timeout
       description: How long to wait for motion after this automation turns off the light to reactivate it
       selector:
         duration:
@@ -94,7 +94,7 @@ triggers:
     event_type: automation_reloaded
     id: automation_reload
 
-mode: single
+mode: restart
 
 variables:
   light_entity: !input light
@@ -111,9 +111,9 @@ actions:
   # Initialize state: if light is on at startup/reload, treat as externally turned on
   - variables:
       phase: "{% if states[light_entity].state == 'on' %}deactivation{% else %}waiting{% endif %}"
-      light_external_on_time: "{% if states[light_entity].state == 'on' %}{{ now() }}{% endif %}"
-      light_automation_off_time: null
-      light_reactivated_time: null
+      deactivation_start_time: "{% if states[light_entity].state == 'on' %}{{ now() }}{% endif %}"
+      deactivation_end_time: null
+      deactivation_reactivated_time: null
 
   # - action: system_log.write
   #   data:
@@ -141,7 +141,7 @@ actions:
               then:
                 - variables:
                     phase: "deactivation"
-                    light_external_on_time: "{{ now() }}"
+                    deactivation_start_time: "{{ now() }}"
                 # - action: system_log.write
                 #   data:
                 #     message: "VACANCY: Light is already on in WAITING phase, transitioning to DEACTIVATION"
@@ -161,7 +161,7 @@ actions:
                   then:
                     - variables:
                         phase: "deactivation"
-                        light_external_on_time: "{{ now() }}"
+                        deactivation_start_time: "{{ now() }}"
                     # - action: system_log.write
                     #   data:
                     #     message: "VACANCY: Light turned on externally at {{ light_external_on_time }}"
@@ -210,7 +210,7 @@ actions:
                         entity_id: !input light
                     - variables:
                         phase: "reactivation"
-                        light_automation_off_time: "{{ now() }}"
+                        deactivation_end_time: "{{ now() }}"
 
                 # Light turned off externally - go back to waiting
                 - if:
@@ -223,9 +223,9 @@ actions:
                     #     level: debug
                     - variables:
                         phase: "waiting"
-                        light_external_on_time: null
-                        light_automation_off_time: null
-                        light_reactivated_time: null
+                        deactivation_start_time: null
+                        deactivation_end_time: null
+                        deactivation_reactivated_time: null
 
         # PHASE: REACTIVATION - Light is off (we turned it off), waiting for motion or timeout
         - if:
@@ -270,7 +270,7 @@ actions:
                         entity_id: !input light
                     - variables:
                         phase: "deactivation"
-                        light_reactivated_time: "{{ now() }}"
+                        deactivation_reactivated_time: "{{ now() }}"
 
                 # Light turned on externally during reactivation - go to deactivation
                 - if:
@@ -283,7 +283,7 @@ actions:
                     #     level: debug
                     - variables:
                         phase: "deactivation"
-                        light_external_on_time: "{{ now() }}"
+                        deactivation_start_time: "{{ now() }}"
               else:
                 # Reactivation timeout elapsed, no motion - go back to waiting
                 # - action: system_log.write
@@ -292,5 +292,5 @@ actions:
                 #     level: debug
                 - variables:
                     phase: "waiting"
-                    light_automation_off_time: null
-                    light_reactivated_time: null
+                    deactivation_end_time: null
+                    deactivation_reactivated_time: null
