@@ -31,10 +31,11 @@ AVAILABLE COLUMNS:
   Model               YoLink model number (e.g., YS7804-UC)
   Battery             Battery level percentage (0-100%%)
   Temp                Device temperature reading (N/A for non-temperature devices)
+  Humidity            Relative humidity percentage (YS8003-UC sensors only)
   Last radio contact  Last communication timestamp with hub (local time)
   No motion delay     Motion detection timeout in seconds (motion sensors only)
   Sensitivity         Motion detection sensitivity level (motion sensors only)
-  State               Current device state (e.g., "no motion", "dry", "open")
+  State               Current device state (e.g., "no motion", "dry", "open", "normal")
   Version             Firmware version
 
 ENVIRONMENT VARIABLES (required):
@@ -136,9 +137,17 @@ def format_device_type(device_type, model=None):
     if model == 'YS7706-UC':
         return 'Garage door sensor'
     
+    # Special case for temperature/humidity sensors
+    if device_type == 'THSensor':
+        if model == 'YS8003-UC':
+            return 'Temperature and humidity sensor'
+        elif model == 'YS8004-UC':
+            return 'Temperature sensor'
+        else:
+            return 'Temperature sensor'
+    
     type_mapping = {
         'MotionSensor': 'Motion sensor',
-        'THSensor': 'Temperature sensor',
         'DoorSensor': 'Door sensor',
         'LeakSensor': 'Leak sensor',
     }
@@ -247,6 +256,7 @@ else:
         # Get device properties
         battery = 'N/A'
         temperature = None
+        humidity = 'N/A'
         version = 'N/A'
         state_str = 'N/A'
         nomotion = 'N/A'
@@ -305,6 +315,17 @@ else:
                         state_str = 'dry'
                     else:
                         state_str = raw_state.lower()
+                elif device_type == 'THSensor':
+                    # For temperature/humidity sensors
+                    raw_state = properties.get('state', 'N/A')
+                    state_str = raw_state.lower()
+                    
+                    if model == 'YS8003-UC':
+                        # Humidity sensors - extract humidity reading
+                        humidity_val = properties.get('humidity', None)
+                        if humidity_val is not None:
+                            humidity = f'{humidity_val}%'
+                        # else humidity stays as 'N/A' from initialization
                 elif 'state' in properties:
                     state_str = properties['state'][:20].lower()
                 elif properties:
@@ -317,25 +338,25 @@ else:
         if temperature is None:
             temperature = format_temperature(None, device_type)
         
-        table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, report_time, nomotion, sensitivity, state_str, version])
+        table_data.append([format_device_type(device_type, model), device_name, device_id, model, battery, temperature, humidity, report_time, nomotion, sensitivity, state_str, version])
     
     # Print header with wrapped "No motion delay" and "Last radio contact" (3 lines, centered)
     if args.hide_device_id:
-        print(f"{'Type':<20} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>7} {'Last':^19} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'radio':^19} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-        print(f"{'':<20} {'':<35} {'':<10} {'':<8} {'':<7} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-        print("-" * 175)
+        print(f"{'Type':<32} {'Name':<35} {'Model':<10} {'Battery':>8} {'Temp':>7} {'Humidity':>9} {'Last':^19} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<32} {'':<35} {'':<10} {'':<8} {'':<7} {'':<9} {'radio':^19} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<32} {'':<35} {'':<10} {'':<8} {'':<7} {'':<9} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 194)
     else:
-        print(f"{'Type':<20} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>7} {'Last':^19} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
-        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'radio':^19} {'motion':^10} {'':<11} {'':<16} {'':<8}")
-        print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
-        print("-" * 193)
+        print(f"{'Type':<32} {'Name':<35} {'Device ID':<18} {'Model':<10} {'Battery':>8} {'Temp':>7} {'Humidity':>9} {'Last':^19} {'No':^10} {'Sensitivity':^11} {'State':^16} {'Version':^8}")
+        print(f"{'':<32} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'':<9} {'radio':^19} {'motion':^10} {'':<11} {'':<16} {'':<8}")
+        print(f"{'':<32} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'':<9} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
+        print("-" * 212)
     
     # Sort by device type, then by name (or by contact time if requested)
     if args.sort_by_contact:
         # Sort by Last radio contact (oldest first), then Type, then Name
         # Strip whitespace from centered timestamp for proper sorting
-        table_data.sort(key=lambda row: (row[6].strip(), row[0], row[1]))
+        table_data.sort(key=lambda row: (row[7].strip(), row[0], row[1]))
     else:
         # Default: Sort by Type, then Name
         table_data.sort(key=lambda row: (row[0], row[1]))
@@ -343,9 +364,9 @@ else:
     # Print rows with proper alignment
     for row in table_data:
         if args.hide_device_id:
-            print(f"{row[0]:<20} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^19} {row[7]:^10} {row[8]:^11} {row[9]:^16} {row[10]:^8}")
+            print(f"{row[0]:<32} {row[1]:<35} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:>9} {row[7]:^19} {row[8]:^10} {row[9]:^11} {row[10]:^16} {row[11]:^8}")
         else:
-            print(f"{row[0]:<20} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:^19} {row[7]:^10} {row[8]:^11} {row[9]:^16} {row[10]:^8}")
+            print(f"{row[0]:<32} {row[1]:<35} {row[2]:<18} {row[3]:<10} {row[4]:>8} {row[5]:>7} {row[6]:>9} {row[7]:^19} {row[8]:^10} {row[9]:^11} {row[10]:^16} {row[11]:^8}")
 
 # Output JSON responses if requested
 if args.json and json_responses:
