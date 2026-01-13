@@ -11,9 +11,62 @@ from urllib3.exceptions import InsecureRequestWarning
 from tabulate import tabulate
 
 # Parse command-line arguments
-parser = argparse.ArgumentParser(description='Get device list from YoLink local hub')
-parser.add_argument('-noid', '--hide-device-id', action='store_true', help='Hide the Device ID column')
-parser.add_argument('--json', action='store_true', help='Output JSON response for each device showing all fields')
+parser = argparse.ArgumentParser(
+    description='Get device list from YoLink local hub and display in table format',
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog='''
+COLUMN VISIBILITY:
+  By default, all columns are displayed. You can hide specific columns:
+  
+  -noid, --hide-device-id    Hide the Device ID column (useful for cleaner display)
+
+SORTING:
+  Default: Sorted by device Type (alphabetically), then by Name.
+  --sort-by-contact: Sort by Last radio contact (oldest first), then Type, then Name.
+
+AVAILABLE COLUMNS:
+  Type                Device type (e.g., Motion sensor, Door sensor)
+  Name                Device name as configured in YoLink
+  Device ID           Unique device identifier (can be hidden with -noid)
+  Model               YoLink model number (e.g., YS7804-UC)
+  Battery             Battery level percentage (0-100%%)
+  Temp                Device temperature reading (N/A for non-temperature devices)
+  Last radio contact  Last communication timestamp with hub (local time)
+  No motion delay     Motion detection timeout in seconds (motion sensors only)
+  Sensitivity         Motion detection sensitivity level (motion sensors only)
+  State               Current device state (e.g., "no motion", "dry", "open")
+  Version             Firmware version
+
+ENVIRONMENT VARIABLES (required):
+  YOLINK_URL          YoLink hub URL (e.g., https://192.168.1.100:8003)
+  YOLINK_TOKEN        YoLink API access token
+
+EXAMPLES:
+  # Display all devices with all columns (sorted by Type, then Name)
+  %(prog)s
+  
+  # Hide Device ID column for cleaner output
+  %(prog)s -noid
+  
+  # Sort by Last radio contact (oldest first)
+  %(prog)s --sort-by-contact
+  
+  # Output full JSON responses for debugging
+  %(prog)s --json
+  
+  # Combine options
+  %(prog)s -noid --sort-by-contact --json > output.txt
+
+OUTPUT FORMAT:
+  Default: Human-readable table with aligned columns
+  --json:  Appends detailed JSON responses after the table
+''')
+parser.add_argument('-noid', '--hide-device-id', action='store_true', 
+                    help='Hide the Device ID column for cleaner display')
+parser.add_argument('--sort-by-contact', action='store_true',
+                    help='Sort by Last radio contact (oldest first), then Type, then Name')
+parser.add_argument('--json', action='store_true', 
+                    help='Output full JSON response for each device (appended after table)')
 args = parser.parse_args()
 
 # Get environment variables
@@ -278,8 +331,14 @@ else:
         print(f"{'':<20} {'':<35} {'':<18} {'':<10} {'':<8} {'':<7} {'contact':^19} {'delay':^10} {'':<11} {'':<16} {'':<8}")
         print("-" * 193)
     
-    # Sort by device type, then by name
-    table_data.sort(key=lambda row: (row[0], row[1]))
+    # Sort by device type, then by name (or by contact time if requested)
+    if args.sort_by_contact:
+        # Sort by Last radio contact (oldest first), then Type, then Name
+        # Strip whitespace from centered timestamp for proper sorting
+        table_data.sort(key=lambda row: (row[6].strip(), row[0], row[1]))
+    else:
+        # Default: Sort by Type, then Name
+        table_data.sort(key=lambda row: (row[0], row[1]))
     
     # Print rows with proper alignment
     for row in table_data:
