@@ -40,7 +40,8 @@ AVAILABLE COLUMNS:
 
 ENVIRONMENT VARIABLES (required):
   YOLINK_URL          YoLink hub URL (e.g., https://192.168.1.100:8003)
-  YOLINK_TOKEN        YoLink API access token
+  YOLINK_CLIENT_ID      OAuth client ID
+  YOLINK_CLIENT_SECRET  OAuth client secret
 
 EXAMPLES:
   # Display all devices with all columns (sorted by Type, then Name)
@@ -72,15 +73,57 @@ args = parser.parse_args()
 
 # Get environment variables
 yolink_url = os.environ.get('YOLINK_URL')
-yolink_token = os.environ.get('YOLINK_TOKEN')
+yolink_client_id = os.environ.get('YOLINK_CLIENT_ID')
+yolink_client_secret = os.environ.get('YOLINK_CLIENT_SECRET')
 
-# Validate environment variables
-if not yolink_url or not yolink_token:
-    print("Error: Missing required environment variables:", file=sys.stderr)
-    if not yolink_url:
-        print("  - YOLINK_URL", file=sys.stderr)
+# Validate we have required environment variables
+missing = []
+if not yolink_url:
+    missing.append('YOLINK_URL')
+if not yolink_client_id:
+    missing.append('YOLINK_CLIENT_ID')
+if not yolink_client_secret:
+    missing.append('YOLINK_CLIENT_SECRET')
+
+if missing:
+    print("Error: Missing required environment variable(s):", file=sys.stderr)
+    for var in missing:
+        print(f"  {var}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Where to find these values:", file=sys.stderr)
+    print("  YOLINK_URL: YoLink hub's local API endpoint (e.g., http://192.168.1.100:1080)", file=sys.stderr)
+    print("  YOLINK_CLIENT_ID and YOLINK_CLIENT_SECRET:", file=sys.stderr)
+    print("    Open YoLink app -> Select hub -> 'Local network' -> 'Integrations' tab", file=sys.stderr)
+    sys.exit(1)
+
+# Fetch token
+token_url = f"{yolink_url}/open/yolink/token"
+print(f"Fetching token from {token_url}...", file=sys.stderr)
+
+try:
+    token_response = requests.post(
+        token_url,
+        data={
+            'grant_type': 'client_credentials',
+            'client_id': yolink_client_id,
+            'client_secret': yolink_client_secret
+        },
+        verify=False,
+        timeout=10
+    )
+    token_response.raise_for_status()
+    token_data = token_response.json()
+    yolink_token = token_data.get('access_token')
+    
     if not yolink_token:
-        print("  - YOLINK_TOKEN", file=sys.stderr)
+        print("Error: Failed to obtain token from response", file=sys.stderr)
+        print(f"Response: {token_data}", file=sys.stderr)
+        sys.exit(1)
+    
+    print("Token obtained successfully", file=sys.stderr)
+    
+except Exception as e:
+    print(f"Error: Failed to fetch token: {e}", file=sys.stderr)
     sys.exit(1)
 
 api_url = f"{yolink_url}/open/yolink/v2/api"
